@@ -42,7 +42,7 @@ private:
     TreeNode*              nodes[16]  = {};
     TreeNode*              root       = nullptr;
     std::vector<TreeNode*> visitOrder;
-    int                    traversalDelayMs = 300;
+    int                    traversalDelayMs = 1000;
     void buildBinaryTree();
     void layoutBinaryTree();
     void resetVisuals();

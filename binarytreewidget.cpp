@@ -1,43 +1,47 @@
+
 #include "BinaryTreeWidget.h"
 #include "NodeItem.h"
 
-#include <QGraphicsScene>
-#include <QGraphicsView>
-#include <QPushButton>
+#include <QGraphicsScene>        // 必须：定义 QGraphicsScene
+#include <QGraphicsView>         // 必须：定义 QGraphicsView
+#include <QGraphicsLineItem>
 #include <QVBoxLayout>
+#include<QPushButton>
 #include <QHBoxLayout>
 #include <QPropertyAnimation>
-#include <QTimer>
 #include <QMessageBox>
-#include <cmath>
-#include <QGraphicsLineItem>
+#include <QTimer>
 #include <QPen>
+#include <QPainter>              // 必须：用于 setRenderHint
+#include <cmath>
 
 BinaryTreeWidget::BinaryTreeWidget(QWidget* parent)
     : QWidget(parent), nextNodeId(1)
 {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    view = new QGraphicsView(this);
+    auto *mainLayout = new QVBoxLayout(this);
+
     scene = new QGraphicsScene(this);
-    view->setScene(scene);
+    view  = new QGraphicsView(scene, this);
     view->setRenderHint(QPainter::Antialiasing);
+    view->setDragMode(QGraphicsView::ScrollHandDrag);
+    view->setResizeAnchor(QGraphicsView::AnchorUnderMouse);
+    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     mainLayout->addWidget(view);
 
-    QHBoxLayout* controlLayout = new QHBoxLayout;
-    addButton = new QPushButton("添加节点");
-    removeButton = new QPushButton("删除末尾节点");
-    clearButton = new QPushButton("清空");
-    controlLayout->addWidget(addButton);
-    controlLayout->addWidget(removeButton);
-    controlLayout->addWidget(clearButton);
-    mainLayout->addLayout(controlLayout);
+    auto *hlay = new QHBoxLayout;
+    addButton    = new QPushButton("添加节点", this);
+    removeButton = new QPushButton("删除末尾节点", this);
+    clearButton  = new QPushButton("清空", this);
+    hlay->addWidget(addButton);
+    hlay->addWidget(removeButton);
+    hlay->addWidget(clearButton);
+    mainLayout->addLayout(hlay);
 
     connect(addButton, &QPushButton::clicked, this, &BinaryTreeWidget::onAddNode);
     connect(removeButton, &QPushButton::clicked, this, &BinaryTreeWidget::onRemoveNode);
     connect(clearButton, &QPushButton::clicked, this, &BinaryTreeWidget::onClear);
 
-    // 初始化场景大小
-    scene->setSceneRect(0, 0, 800, 500);
+    scene->setSceneRect(0,0,800,500);
 }
 
 void BinaryTreeWidget::onAddNode() {
@@ -115,21 +119,19 @@ void BinaryTreeWidget::updateScene() {
         drawEdge(right);
     }
 }
-
 void BinaryTreeWidget::animateNodeInsertion(NodeItem* node) {
-    QPropertyAnimation* anim = new QPropertyAnimation(node, "opacity");
+    auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);
     anim->setStartValue(0.0);
     anim->setEndValue(1.0);
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
-
 void BinaryTreeWidget::animateNodeDeletion(NodeItem* node, std::function<void()> callback) {
-    QPropertyAnimation* anim = new QPropertyAnimation(node, "opacity");
+    auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);
     anim->setStartValue(1.0);
     anim->setEndValue(0.0);
-    connect(anim, &QPropertyAnimation::finished, this, [this, node, callback]() {
+    connect(anim, &QPropertyAnimation::finished, this, [=]() {
         scene->removeItem(node);
         delete node;
         if (callback) callback();

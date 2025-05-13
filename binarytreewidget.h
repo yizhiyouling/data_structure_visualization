@@ -3,12 +3,12 @@
 
 #include <QWidget>
 #include <vector>
-#include <functional>
+#include "NodeItem.h"
+#include <QGraphicsLineItem>
 
 class QGraphicsScene;
 class QGraphicsView;
 class QPushButton;
-class NodeItem;
 
 class BinaryTreeWidget : public QWidget
 {

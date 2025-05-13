@@ -7,20 +7,24 @@
 #include <QPen>
 #include <QMessageBox>
 #include <QTimer>
-#include <cmath>
 #include <QShowEvent>
+#include <cmath>
 
 TreeTraversalWidget::TreeTraversalWidget(QWidget* parent)
     : QWidget(parent)
 {
     auto *vlay = new QVBoxLayout(this);
     auto *hlay = new QHBoxLayout;
-    scene    = new QGraphicsScene(this);
-    mainView = new QGraphicsView(scene, this);
-    mainView->setMinimumSize(800, 500);
 
-    thumbView = new QGraphicsView(scene, this);
-    thumbView->setFixedSize(200, 150);
+    scene    = new QGraphicsScene(this);
+    mainView = new QGraphicsView(scene,this);
+    mainView->setRenderHint(QPainter::Antialiasing);
+    mainView->setDragMode(QGraphicsView::ScrollHandDrag);
+    mainView->setResizeAnchor(QGraphicsView::AnchorUnderMouse);
+    mainView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+
+    thumbView = new QGraphicsView(scene,this);
+    thumbView->setFixedSize(200,150);
     thumbView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     thumbView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
@@ -28,11 +32,11 @@ TreeTraversalWidget::TreeTraversalWidget(QWidget* parent)
     hlay->addWidget(thumbView);
     vlay->addLayout(hlay);
 
-    auto *btnLay = new QHBoxLayout;
     btnPre   = new QPushButton("前序遍历", this);
     btnIn    = new QPushButton("中序遍历", this);
     btnPost  = new QPushButton("后序遍历", this);
     btnLevel = new QPushButton("层序遍历", this);
+    auto *btnLay = new QHBoxLayout;
     btnLay->addWidget(btnPre);
     btnLay->addWidget(btnIn);
     btnLay->addWidget(btnPost);
@@ -51,74 +55,64 @@ TreeTraversalWidget::TreeTraversalWidget(QWidget* parent)
 
     buildBinaryTree();
     layoutBinaryTree();
-
-    setWindowTitle("二叉树遍历演示");
 }
 
 void TreeTraversalWidget::showEvent(QShowEvent* ev) {
     QWidget::showEvent(ev);
-    // 确保视图显示后再 fitInView，避免 scene rect 尚未计算好导致 crash
-    auto rect = scene->itemsBoundingRect();
-    scene->setSceneRect(rect);
-    thumbView->fitInView(rect, Qt::KeepAspectRatio);
+    QRectF br = scene->itemsBoundingRect();
+    scene->setSceneRect(br.adjusted(-20,-20,20,20));
+    thumbView->fitInView(br, Qt::KeepAspectRatio);
 }
 
 void TreeTraversalWidget::buildBinaryTree() {
     for (int i = 1; i <= 15; ++i) {
-        nodes[i] = new TreeNode{ i };
-        // 圆形节点
+        nodes[i] = new TreeNode{i};
         nodes[i]->circle = new QGraphicsEllipseItem(0,0,40,40);
         nodes[i]->circle->setBrush(Qt::blue);
         nodes[i]->circle->setPen(QPen(Qt::black,2));
         scene->addItem(nodes[i]->circle);
-
-        // 文本标签：放大字体，并置于最上层
-        QFont font;
-        font.setPointSize(14);  // 这里把字号调大到14
-        font.setBold(true);
         nodes[i]->label = new QGraphicsTextItem(QString::number(i), nodes[i]->circle);
-        nodes[i]->label->setFont(font);
+        QFont f; f.setPointSize(14); f.setBold(true);
+        nodes[i]->label->setFont(f);
         nodes[i]->label->setDefaultTextColor(Qt::white);
-        nodes[i]->label->setPos( (40 - nodes[i]->label->boundingRect().width())/2,
-                                (40 - nodes[i]->label->boundingRect().height())/2 );
+        nodes[i]->label->setPos((40-nodes[i]->label->boundingRect().width())/2,
+                                (40-nodes[i]->label->boundingRect().height())/2);
         nodes[i]->label->setZValue(1);
     }
     root = nodes[1];
     for (int i = 1; i <= 7; ++i) {
-        nodes[i]->left  = nodes[2*i];
-        nodes[2*i]->parent = nodes[i];
-        nodes[i]->right = nodes[2*i+1];
-        nodes[2*i+1]->parent = nodes[i];
+        nodes[i]->left  = nodes[2*i]; nodes[2*i]->parent = nodes[i];
+        nodes[i]->right = nodes[2*i+1]; nodes[2*i+1]->parent = nodes[i];
     }
 }
 
 void TreeTraversalWidget::layoutBinaryTree() {
-    constexpr int W = 800, levelGap=100;
-    scene->setSceneRect(0,0,W,levelGap*4+50);
+    constexpr int W=800, gapY=100;
+    QRectF rect(0,0,W,gapY*4);
     for (int i = 1; i <= 15; ++i) {
         int lvl = int(std::floor(std::log2(i)));
-        int idx = i - ((1<<lvl)-1);
-        int cnt = 1<<lvl;
-        qreal dx = W/(cnt+1.0);
-        qreal x = dx*idx - 20;
-        qreal y = lvl*levelGap;
+        int idx = i - ((1<<lvl)-1), cnt=1<<lvl;
+        qreal x = W*(idx/(qreal)(cnt+1)) - 20;
+        qreal y = lvl*gapY;
         nodes[i]->circle->setPos(x,y);
     }
-    constexpr qreal R=20.0;
+    constexpr qreal R=20;
     for (int i = 1; i <= 7; ++i) {
-        auto *p = nodes[i];
-        for (auto *c : {p->left,p->right}) {
-            QPointF pc = p->circle->pos() + QPointF(R,R);
-            QPointF cc = c->circle->pos() + QPointF(R,R);
+        auto *p=nodes[i];
+        for (auto *c: {p->left,p->right}) {
+            QPointF pc = p->circle->pos()+QPointF(R,R);
+            QPointF cc = c->circle->pos()+QPointF(R,R);
             qreal ang = std::atan2(cc.y()-pc.y(), cc.x()-pc.x());
-            QPointF pEdge = pc + QPointF(std::cos(ang)*R, std::sin(ang)*R);
-            QPointF cEdge = cc - QPointF(std::cos(ang)*R, std::sin(ang)*R);
-            auto *e = new QGraphicsLineItem(QLineF(pEdge,cEdge));
-            e->setPen(QPen(Qt::black,2));
-            scene->addItem(e);
-            c->parentEdge = e;
+            QPointF pEdge=pc+QPointF(std::cos(ang)*R,std::sin(ang)*R);
+            QPointF cEdge=cc-QPointF(std::cos(ang)*R,std::sin(ang)*R);
+            auto *line=new QGraphicsLineItem(QLineF(pEdge,cEdge));
+            line->setPen(QPen(Qt::black,2));
+            scene->addItem(line);
+            c->parentEdge=line;
         }
     }
+    QRectF br = scene->itemsBoundingRect();
+    scene->setSceneRect(br.adjusted(-20,-20,20,20));
 }
 
 void TreeTraversalWidget::resetVisuals() {

@@ -6,10 +6,9 @@
 #include <QGraphicsView>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QGraphicsLineItem>    // 添加：QGraphicsLineItem 定义
+#include <QGraphicsLineItem>
 #include "NodeItem.h"
-#include "ArrowItem.h"          // 添加：ArrowItem 定义
-
+#include "ArrowItem.h"
 #include <vector>
 #include <functional>
 
@@ -37,8 +36,8 @@ private:
     QPushButton*    clearButton;
 
     std::vector<NodeItem*>           nodes;
-    std::vector<QGraphicsLineItem*>  linesFwd, linesBwd;   // 现在能够识别 QGraphicsLineItem
-    std::vector<ArrowItem*>          arrowsFwd, arrowsBwd; // 现在能够识别 ArrowItem
+    std::vector<QGraphicsLineItem*>  linesFwd, linesBwd;
+    std::vector<ArrowItem*>          arrowsFwd, arrowsBwd;
     int                               nextNodeId;
 
     void updateScene();

@@ -2,16 +2,10 @@
 #include "NodeItem.h"
 #include "ArrowItem.h"
 
-#include <QGraphicsScene>
-#include <QGraphicsView>
-#include <QGraphicsLineItem>
-#include <QLineEdit>
-#include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGraphicsLineItem>
 #include <QPropertyAnimation>
-#include <QSequentialAnimationGroup>
-#include <QPauseAnimation>
 #include <QMessageBox>
 #include <QTimer>
 #include <QPen>
@@ -22,17 +16,18 @@ SinglyLinkedListWidget::SinglyLinkedListWidget(QWidget* parent)
 {
     auto *vlay = new QVBoxLayout(this);
 
-    // 图形视图
-    view = new QGraphicsView(this);
-    view->setRenderHint(QPainter::Antialiasing);
+    // GraphicsView + Scene
     scene = new QGraphicsScene(this);
-    scene->setSceneRect(0, 0, 800, 200);
-    view->setScene(scene);
+    view = new QGraphicsView(scene, this);
+    view->setRenderHint(QPainter::Antialiasing);
+    view->setDragMode(QGraphicsView::ScrollHandDrag);
+    view->setResizeAnchor(QGraphicsView::AnchorUnderMouse);
+    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     vlay->addWidget(view);
 
-    // 控制面板
+    // Control panel
     auto *hlay = new QHBoxLayout;
-    targetLineEdit = new QLineEdit(this);
+    targetLineEdit        = new QLineEdit(this);
     targetLineEdit->setPlaceholderText("目标节点编号");
     addEndButton          = new QPushButton("添加末尾节点", this);
     removeEndButton       = new QPushButton("删除末尾节点", this);
@@ -52,6 +47,9 @@ SinglyLinkedListWidget::SinglyLinkedListWidget(QWidget* parent)
     connect(addAfterButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onAddAfter);
     connect(removeSpecifiedButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onRemoveSpecified);
     connect(clearButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onClear);
+
+    // initial sceneRect
+    scene->setSceneRect(0,0,800,200);
 }
 
 void SinglyLinkedListWidget::onAddEnd() {
@@ -125,24 +123,29 @@ void SinglyLinkedListWidget::onClear() {
     nodes.clear(); lines.clear(); arrows.clear();
     nextNodeId = 1;
     targetLineEdit->clear();
+    updateScene();
 }
 
 void SinglyLinkedListWidget::updateScene() {
-    // 清除旧连线与箭头
+    // clear old
     for (auto *l : lines) { scene->removeItem(l); delete l; }
     for (auto *a : arrows){ scene->removeItem(a); delete a; }
     lines.clear(); arrows.clear();
 
-    // 重新布局节点
+    // layout nodes
     int n = nodes.size();
-    const qreal startX = 50, gap = 100, y = 80;
+    const qreal startX=50, gap=100, y=80;
     for (int i = 0; i < n; ++i) {
-        nodes[i]->setPos(startX + i * gap, y);
+        nodes[i]->setPos(startX + i*gap, y);
     }
-    // 绘制新连线与箭头
+    // draw connections
     for (int i = 0; i + 1 < n; ++i) {
         drawConnection(nodes[i], nodes[i+1]);
     }
+
+    // auto expand scene
+    QRectF br = scene->itemsBoundingRect();
+    scene->setSceneRect(br.adjusted(-20,-20,20,20));
 }
 
 void SinglyLinkedListWidget::drawConnection(NodeItem* from, NodeItem* to) {
@@ -153,13 +156,13 @@ void SinglyLinkedListWidget::drawConnection(NodeItem* from, NodeItem* to) {
     QPointF pEdge = p + QPointF(std::cos(ang)*R, std::sin(ang)*R);
     QPointF cEdge = c - QPointF(std::cos(ang)*R, std::sin(ang)*R);
 
-    // 线
+    // line
     auto *line = new QGraphicsLineItem(QLineF(pEdge, cEdge));
     line->setPen(QPen(Qt::black, 2));
     scene->addItem(line);
     lines.push_back(line);
 
-    // 箭头
+    // arrow
     QPolygonF tri;
     tri << QPointF(0,0) << QPointF(-8,-5) << QPointF(-8,5);
     auto *arrow = new ArrowItem(tri);

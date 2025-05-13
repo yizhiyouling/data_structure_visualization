@@ -2,16 +2,11 @@
 #include "NodeItem.h"
 #include "ArrowItem.h"
 
-#include <QGraphicsScene>
-#include <QGraphicsView>
-#include <QGraphicsLineItem>
-#include <QLineEdit>
-#include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGraphicsLineItem>
 #include <QPropertyAnimation>
 #include <QSequentialAnimationGroup>
-#include <QPauseAnimation>
 #include <QMessageBox>
 #include <QTimer>
 #include <QPen>
@@ -22,11 +17,12 @@ DoublyLinkedListWidget::DoublyLinkedListWidget(QWidget* parent)
 {
     auto *vlay = new QVBoxLayout(this);
 
-    view = new QGraphicsView(this);
-    view->setRenderHint(QPainter::Antialiasing);
     scene = new QGraphicsScene(this);
-    scene->setSceneRect(0, 0, 800, 200);
-    view->setScene(scene);
+    view  = new QGraphicsView(scene, this);
+    view->setRenderHint(QPainter::Antialiasing);
+    view->setDragMode(QGraphicsView::ScrollHandDrag);
+    view->setResizeAnchor(QGraphicsView::AnchorUnderMouse);
+    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     vlay->addWidget(view);
 
     auto *hlay = new QHBoxLayout;
@@ -170,8 +166,6 @@ void DoublyLinkedListWidget::animatePointerTraversal(int targetIndex, std::funct
         return;
     }
     QSequentialAnimationGroup* group = new QSequentialAnimationGroup(this);
-    // 在这里可添加指针遍历动画...
-    // 省略细节，保留之前实现或简单回调：
     connect(group, &QSequentialAnimationGroup::finished, this, [=]() {
         if (callback) callback();
     });
@@ -185,7 +179,6 @@ void DoublyLinkedListWidget::animateNodeInsertion(NodeItem* node) {
     anim->setEndValue(1.0);
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
-
 void DoublyLinkedListWidget::animateNodeDeletion(NodeItem* node, std::function<void()> callback) {
     auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);

@@ -7,10 +7,11 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPropertyAnimation>
-#include <QParallelAnimationGroup>
 #include <QTimer>
 #include <QMessageBox>
 #include <cmath>
+#include <QGraphicsLineItem>
+#include <QPen>
 
 BinaryTreeWidget::BinaryTreeWidget(QWidget* parent)
     : QWidget(parent), nextNodeId(1)
@@ -19,7 +20,7 @@ BinaryTreeWidget::BinaryTreeWidget(QWidget* parent)
     view = new QGraphicsView(this);
     scene = new QGraphicsScene(this);
     view->setScene(scene);
-    scene->setSceneRect(0, 0, 800, 400);
+    view->setRenderHint(QPainter::Antialiasing);
     mainLayout->addWidget(view);
 
     QHBoxLayout* controlLayout = new QHBoxLayout;
@@ -34,6 +35,9 @@ BinaryTreeWidget::BinaryTreeWidget(QWidget* parent)
     connect(addButton, &QPushButton::clicked, this, &BinaryTreeWidget::onAddNode);
     connect(removeButton, &QPushButton::clicked, this, &BinaryTreeWidget::onRemoveNode);
     connect(clearButton, &QPushButton::clicked, this, &BinaryTreeWidget::onClear);
+
+    // 初始化场景大小
+    scene->setSceneRect(0, 0, 800, 500);
 }
 
 void BinaryTreeWidget::onAddNode() {
@@ -51,9 +55,7 @@ void BinaryTreeWidget::onRemoveNode() {
         return;
     }
     NodeItem* node = treeNodes.back();
-    animateNodeDeletion(node, [this]() {
-        updateScene();
-    });
+    animateNodeDeletion(node, [this]() { updateScene(); });
     treeNodes.pop_back();
 }
 
@@ -68,69 +70,49 @@ void BinaryTreeWidget::onClear() {
 }
 
 void BinaryTreeWidget::updateScene() {
-    // 清除场景中除 NodeItem 外的其他图形（即箭头）
+    // 清除旧边
     QList<QGraphicsItem*> items = scene->items();
-    for (QGraphicsItem* item : items) {
-        if (dynamic_cast<NodeItem*>(item) == nullptr)
-        {
-            scene->removeItem(item);
-            delete item;
+    for (auto it = items.begin(); it != items.end(); ++it) {
+        if (!dynamic_cast<NodeItem*>(*it)) {
+            scene->removeItem(*it);
+            delete *it;
         }
     }
 
     int n = treeNodes.size();
+    const qreal W = 800;
+    const qreal levelGap = 100;
+    const qreal R = 20; // 半径
+
+    // 布局所有节点
     for (int i = 0; i < n; i++) {
-        int level = static_cast<int>(std::floor(std::log2(i+1)));
-        int indexInLevel = i - ((1 << level) - 1);
-        int nodesInLevel = 1 << level;
-        int sceneWidth = 800;
-        int xSpacing = sceneWidth / (nodesInLevel + 1);
-        int x = xSpacing * (indexInLevel + 1) - 40;
-        int y = level * 70 + 20;
+        int level = static_cast<int>(std::floor(std::log2(i + 1)));
+        int idx = i - ((1 << level) - 1);
+        int count = 1 << level;
+        qreal xGap = W / (count + 1.0);
+        qreal x = xGap * (idx + 1) - R;
+        qreal y = level * levelGap;
         treeNodes[i]->setPos(x, y);
     }
 
-    // 绘制父子连接箭头
+    // 绘制父子连线（不穿透节点）
     for (int i = 0; i < n; i++) {
-        int leftChild = 2 * i + 1;
-        int rightChild = 2 * i + 2;
-        QPointF parentCenter = treeNodes[i]->pos() + QPointF(40, 20);
-        if (leftChild < n) {
-            QPointF childCenter = treeNodes[leftChild]->pos() + QPointF(40, 20);
-            QGraphicsLineItem* line = new QGraphicsLineItem(QLineF(parentCenter, childCenter));
-            line->setPen(QPen(Qt::black, 2));
-            scene->addItem(line);
-            double angle = std::atan2(childCenter.y() - parentCenter.y(), childCenter.x() - parentCenter.x());
-            const double arrowSize = 10;
-            QPointF arrowP1 = childCenter - QPointF(arrowSize * std::cos(angle - M_PI / 6),
-                                                    arrowSize * std::sin(angle - M_PI / 6));
-            QPointF arrowP2 = childCenter - QPointF(arrowSize * std::cos(angle + M_PI / 6),
-                                                    arrowSize * std::sin(angle + M_PI / 6));
-            QPolygonF arrowHead;
-            arrowHead << childCenter << arrowP1 << arrowP2;
-            QGraphicsPolygonItem* arrowHeadItem = new QGraphicsPolygonItem(arrowHead);
-            arrowHeadItem->setBrush(Qt::black);
-            arrowHeadItem->setPen(QPen(Qt::black));
-            scene->addItem(arrowHeadItem);
-        }
-        if (rightChild < n) {
-            QPointF childCenter = treeNodes[rightChild]->pos() + QPointF(40, 20);
-            QGraphicsLineItem* line = new QGraphicsLineItem(QLineF(parentCenter, childCenter));
-            line->setPen(QPen(Qt::black, 2));
-            scene->addItem(line);
-            double angle = std::atan2(childCenter.y() - parentCenter.y(), childCenter.x() - parentCenter.x());
-            const double arrowSize = 10;
-            QPointF arrowP1 = childCenter - QPointF(arrowSize * std::cos(angle - M_PI / 6),
-                                                    arrowSize * std::sin(angle - M_PI / 6));
-            QPointF arrowP2 = childCenter - QPointF(arrowSize * std::cos(angle + M_PI / 6),
-                                                    arrowSize * std::sin(angle + M_PI / 6));
-            QPolygonF arrowHead;
-            arrowHead << childCenter << arrowP1 << arrowP2;
-            QGraphicsPolygonItem* arrowHeadItem = new QGraphicsPolygonItem(arrowHead);
-            arrowHeadItem->setBrush(Qt::black);
-            arrowHeadItem->setPen(QPen(Qt::black));
-            scene->addItem(arrowHeadItem);
-        }
+        int left  = 2*i + 1;
+        int right = 2*i + 2;
+        QPointF pc = treeNodes[i]->pos() + QPointF(R, R);
+        auto drawEdge = [&](int childIdx) {
+            if (childIdx < n) {
+                QPointF cc = treeNodes[childIdx]->pos() + QPointF(R, R);
+                qreal ang = std::atan2(cc.y() - pc.y(), cc.x() - pc.x());
+                QPointF pEdge = pc  + QPointF(std::cos(ang)*R, std::sin(ang)*R);
+                QPointF cEdge = cc  - QPointF(std::cos(ang)*R, std::sin(ang)*R);
+                QGraphicsLineItem* edge = new QGraphicsLineItem(QLineF(pEdge, cEdge));
+                edge->setPen(QPen(Qt::black, 2));
+                scene->addItem(edge);
+            }
+        };
+        drawEdge(left);
+        drawEdge(right);
     }
 }
 
@@ -149,6 +131,7 @@ void BinaryTreeWidget::animateNodeDeletion(NodeItem* node, std::function<void()>
     anim->setEndValue(0.0);
     connect(anim, &QPropertyAnimation::finished, this, [this, node, callback]() {
         scene->removeItem(node);
+        delete node;
         if (callback) callback();
     });
     anim->start(QAbstractAnimation::DeleteWhenStopped);

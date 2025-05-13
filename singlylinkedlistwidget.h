@@ -2,44 +2,47 @@
 #define SINGLYLINKEDLISTWIDGET_H
 
 #include <QWidget>
+#include <QGraphicsScene>
+#include <QGraphicsView>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QGraphicsLineItem>    // 添加：QGraphicsLineItem 定义
+#include "NodeItem.h"
+#include "ArrowItem.h"          // 添加：ArrowItem 定义
+
 #include <vector>
 #include <functional>
-#include <QGraphicsItem>
-#include "ArrowItem.h"
-
-class QGraphicsScene;
-class QGraphicsView;
-class QLineEdit;
-class QPushButton;
-class NodeItem;
 
 class SinglyLinkedListWidget : public QWidget
 {
     Q_OBJECT
 public:
     explicit SinglyLinkedListWidget(QWidget *parent = nullptr);
+
 private slots:
     void onAddEnd();
     void onRemoveEnd();
     void onAddAfter();
     void onRemoveSpecified();
-    void onClear(); // 清空当前窗口
+    void onClear();
+
 private:
     QGraphicsScene *scene;
-    QGraphicsView *view;
-    QLineEdit *targetLineEdit;
-    QPushButton *addEndButton;
-    QPushButton *removeEndButton;
-    QPushButton *addAfterButton;
-    QPushButton *removeSpecifiedButton;
-    QPushButton *clearButton; // 清空按钮
-    std::vector<NodeItem *> nodes;
-    std::vector<QGraphicsItem *> arrowItems;
-    int nextNodeId;
-    ArrowItem *pointerItem; // 用于模拟指针（图形箭头）
+    QGraphicsView  *view;
+    QLineEdit      *targetLineEdit;
+    QPushButton    *addEndButton;
+    QPushButton    *removeEndButton;
+    QPushButton    *addAfterButton;
+    QPushButton    *removeSpecifiedButton;
+    QPushButton    *clearButton;
+
+    std::vector<NodeItem*>           nodes;
+    std::vector<QGraphicsLineItem*>  lines;   // 现在能够识别 QGraphicsLineItem
+    std::vector<ArrowItem*>          arrows;  // 现在能够识别 ArrowItem
+    int                               nextNodeId;
 
     void updateScene();
-    // 指针遍历动画：从头依次移动到目标节点（索引 targetIndex）
+    void drawConnection(NodeItem* from, NodeItem* to);
     void animatePointerTraversal(int targetIndex, std::function<void()> callback);
     void animateNodeInsertion(NodeItem *node);
     void animateNodeDeletion(NodeItem *node, std::function<void()> callback);

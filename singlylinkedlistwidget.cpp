@@ -1,5 +1,6 @@
 #include "SinglyLinkedListWidget.h"
 #include "NodeItem.h"
+#include "ArrowItem.h"
 
 #include <QGraphicsScene>
 #include <QGraphicsView>
@@ -11,53 +12,46 @@
 #include <QPropertyAnimation>
 #include <QSequentialAnimationGroup>
 #include <QPauseAnimation>
-#include <QParallelAnimationGroup>
 #include <QMessageBox>
 #include <QTimer>
+#include <QPen>
 #include <cmath>
-#include <functional>
 
 SinglyLinkedListWidget::SinglyLinkedListWidget(QWidget* parent)
     : QWidget(parent), nextNodeId(1)
 {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    view = new QGraphicsView(this);
-    scene = new QGraphicsScene(this);
-    view->setScene(scene);
-    scene->setSceneRect(0, 0, 800, 300);
-    mainLayout->addWidget(view);
+    auto *vlay = new QVBoxLayout(this);
 
-    // 控制面板：目标节点输入框、操作按钮以及清空按钮
-    QHBoxLayout* controlLayout = new QHBoxLayout;
-    targetLineEdit = new QLineEdit;
-    targetLineEdit->setPlaceholderText("目标节点编号 (用于插入/删除指定节点)");
-    addEndButton = new QPushButton("添加末尾节点");
-    removeEndButton = new QPushButton("删除末尾节点");
-    addAfterButton = new QPushButton("在指定节点后添加");
-    removeSpecifiedButton = new QPushButton("删除指定节点");
-    clearButton = new QPushButton("清空");
-    controlLayout->addWidget(targetLineEdit);
-    controlLayout->addWidget(addEndButton);
-    controlLayout->addWidget(removeEndButton);
-    controlLayout->addWidget(addAfterButton);
-    controlLayout->addWidget(removeSpecifiedButton);
-    controlLayout->addWidget(clearButton);
-    mainLayout->addLayout(controlLayout);
+    // 图形视图
+    view = new QGraphicsView(this);
+    view->setRenderHint(QPainter::Antialiasing);
+    scene = new QGraphicsScene(this);
+    scene->setSceneRect(0, 0, 800, 200);
+    view->setScene(scene);
+    vlay->addWidget(view);
+
+    // 控制面板
+    auto *hlay = new QHBoxLayout;
+    targetLineEdit = new QLineEdit(this);
+    targetLineEdit->setPlaceholderText("目标节点编号");
+    addEndButton          = new QPushButton("添加末尾节点", this);
+    removeEndButton       = new QPushButton("删除末尾节点", this);
+    addAfterButton        = new QPushButton("在指定节点后添加", this);
+    removeSpecifiedButton = new QPushButton("删除指定节点", this);
+    clearButton           = new QPushButton("清空", this);
+    hlay->addWidget(targetLineEdit);
+    hlay->addWidget(addEndButton);
+    hlay->addWidget(removeEndButton);
+    hlay->addWidget(addAfterButton);
+    hlay->addWidget(removeSpecifiedButton);
+    hlay->addWidget(clearButton);
+    vlay->addLayout(hlay);
 
     connect(addEndButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onAddEnd);
     connect(removeEndButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onRemoveEnd);
     connect(addAfterButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onAddAfter);
     connect(removeSpecifiedButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onRemoveSpecified);
     connect(clearButton, &QPushButton::clicked, this, &SinglyLinkedListWidget::onClear);
-
-    // 创建指针项，用图形箭头（三角形，指向上方）
-    QPolygonF arrowPolygon;
-    arrowPolygon << QPointF(0,0) << QPointF(10,0) << QPointF(5, -15);
-    pointerItem = new ArrowItem(arrowPolygon);
-    pointerItem->setBrush(Qt::red);
-    pointerItem->setPen(QPen(Qt::red));
-    scene->addItem(pointerItem);
-    pointerItem->hide();
 }
 
 void SinglyLinkedListWidget::onAddEnd() {
@@ -75,180 +69,124 @@ void SinglyLinkedListWidget::onRemoveEnd() {
         return;
     }
     NodeItem* node = nodes.back();
-    animatePointerTraversal(nodes.size() - 1, [this, node]() {
-        animateNodeDeletion(node, [this]() {
-            updateScene();
-        });
-        nodes.pop_back();
-    });
+    animateNodeDeletion(node, [this]() { updateScene(); });
+    nodes.pop_back();
 }
 
 void SinglyLinkedListWidget::onAddAfter() {
-    QString targetVal = targetLineEdit->text();
-    if (targetVal.isEmpty()){
-        QMessageBox::warning(this, "输入错误", "请输入目标节点编号！");
+    bool ok;
+    int target = targetLineEdit->text().toInt(&ok);
+    if (!ok) {
+        QMessageBox::warning(this, "输入错误", "请输入合法编号！");
         return;
     }
     int pos = -1;
-    for (size_t i = 0; i < nodes.size(); i++) {
-        if (QString::number(nodes[i]->getValue()) == targetVal) {
-            pos = static_cast<int>(i);
-            break;
-        }
+    for (int i = 0; i < (int)nodes.size(); ++i) {
+        if (nodes[i]->getValue() == target) { pos = i; break; }
     }
-    if (pos == -1) {
+    if (pos < 0) {
         QMessageBox::warning(this, "错误", "未找到目标节点！");
         return;
     }
-    animatePointerTraversal(pos, [this, pos]() {
-        NodeItem* newNode = new NodeItem(nextNodeId++, nullptr);
-        newNode->setOpacity(0.0);
-        nodes.insert(nodes.begin() + pos + 1, newNode);
-        scene->addItem(newNode);
-        animateNodeInsertion(newNode);
-        updateScene();
-    });
+    NodeItem* newNode = new NodeItem(nextNodeId++, nullptr);
+    newNode->setOpacity(0.0);
+    nodes.insert(nodes.begin() + pos + 1, newNode);
+    scene->addItem(newNode);
+    animateNodeInsertion(newNode);
+    QTimer::singleShot(600, this, &SinglyLinkedListWidget::updateScene);
     targetLineEdit->clear();
 }
 
 void SinglyLinkedListWidget::onRemoveSpecified() {
-    QString targetVal = targetLineEdit->text();
-    if (targetVal.isEmpty()){
-        QMessageBox::warning(this, "输入错误", "请输入目标节点编号！");
+    bool ok;
+    int target = targetLineEdit->text().toInt(&ok);
+    if (!ok) {
+        QMessageBox::warning(this, "输入错误", "请输入合法编号！");
         return;
     }
     int pos = -1;
-    for (size_t i = 0; i < nodes.size(); i++) {
-        if (QString::number(nodes[i]->getValue()) == targetVal) {
-            pos = static_cast<int>(i);
-            break;
-        }
+    for (int i = 0; i < (int)nodes.size(); ++i) {
+        if (nodes[i]->getValue() == target) { pos = i; break; }
     }
-    if (pos == -1) {
+    if (pos < 0) {
         QMessageBox::warning(this, "错误", "未找到目标节点！");
         return;
     }
-    animatePointerTraversal(pos, [this, pos]() {
-        NodeItem* targetNode = nodes[pos];
-        animateNodeDeletion(targetNode, [this]() {
-            updateScene();
-        });
-        nodes.erase(nodes.begin() + pos);
-    });
+    NodeItem* node = nodes[pos];
+    animateNodeDeletion(node, [this]() { updateScene(); });
+    nodes.erase(nodes.begin() + pos);
     targetLineEdit->clear();
 }
 
 void SinglyLinkedListWidget::onClear() {
-    for (auto node : nodes) {
-        scene->removeItem(node);
-        delete node;
-    }
-    nodes.clear();
-    for (auto arrow : arrowItems) {
-        scene->removeItem(arrow);
-        delete arrow;
-    }
-    arrowItems.clear();
+    for (auto *n : nodes) { scene->removeItem(n); delete n; }
+    for (auto *l : lines) { scene->removeItem(l); delete l; }
+    for (auto *a : arrows){ scene->removeItem(a); delete a; }
+    nodes.clear(); lines.clear(); arrows.clear();
     nextNodeId = 1;
     targetLineEdit->clear();
-    pointerItem->hide();
-    updateScene();
 }
 
-void SinglyLinkedListWidget::animatePointerTraversal(int targetIndex, std::function<void()> callback) {
-    if (nodes.empty() || targetIndex < 0 || targetIndex >= static_cast<int>(nodes.size())) {
-        if (callback) callback();
-        return;
+void SinglyLinkedListWidget::updateScene() {
+    // 清除旧连线与箭头
+    for (auto *l : lines) { scene->removeItem(l); delete l; }
+    for (auto *a : arrows){ scene->removeItem(a); delete a; }
+    lines.clear(); arrows.clear();
+
+    // 重新布局节点
+    int n = nodes.size();
+    const qreal startX = 50, gap = 100, y = 80;
+    for (int i = 0; i < n; ++i) {
+        nodes[i]->setPos(startX + i * gap, y);
     }
-    QSequentialAnimationGroup* group = new QSequentialAnimationGroup(this);
-    // 指针从第一个节点上方开始：节点中心上方一定距离
-    pointerItem->setPos(nodes[0]->pos() + QPointF(40, -20));
-    pointerItem->show();
-    for (int i = 0; i <= targetIndex; ++i) {
-        QPointF targetPos = nodes[i]->pos() + QPointF(40, -20);
-        QPropertyAnimation* anim = new QPropertyAnimation(pointerItem, "pos");
-        anim->setDuration(300);
-        anim->setEndValue(targetPos);
-        group->addAnimation(anim);
-        if (i < targetIndex) {
-            QPauseAnimation* pause = new QPauseAnimation(200);
-            group->addAnimation(pause);
-        }
+    // 绘制新连线与箭头
+    for (int i = 0; i + 1 < n; ++i) {
+        drawConnection(nodes[i], nodes[i+1]);
     }
-    connect(group, &QSequentialAnimationGroup::finished, this, [this, callback]() {
-        pointerItem->hide();
-        if (callback) callback();
-    });
-    group->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void SinglyLinkedListWidget::animateNodeInsertion(NodeItem* node) {
-    QPropertyAnimation* anim = new QPropertyAnimation(node, "opacity");
+void SinglyLinkedListWidget::drawConnection(NodeItem* from, NodeItem* to) {
+    QPointF p = from->pos() + QPointF(20,20);
+    QPointF c = to  ->pos() + QPointF(20,20);
+    qreal ang = std::atan2(c.y()-p.y(), c.x()-p.x());
+    constexpr qreal R = 20.0;
+    QPointF pEdge = p + QPointF(std::cos(ang)*R, std::sin(ang)*R);
+    QPointF cEdge = c - QPointF(std::cos(ang)*R, std::sin(ang)*R);
+
+    // 线
+    auto *line = new QGraphicsLineItem(QLineF(pEdge, cEdge));
+    line->setPen(QPen(Qt::black, 2));
+    scene->addItem(line);
+    lines.push_back(line);
+
+    // 箭头
+    QPolygonF tri;
+    tri << QPointF(0,0) << QPointF(-8,-5) << QPointF(-8,5);
+    auto *arrow = new ArrowItem(tri);
+    arrow->setBrush(Qt::black);
+    arrow->setPos(cEdge);
+    arrow->setRotation(ang * 180.0/M_PI);
+    scene->addItem(arrow);
+    arrows.push_back(arrow);
+}
+
+void SinglyLinkedListWidget::animateNodeInsertion(NodeItem *node) {
+    auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);
     anim->setStartValue(0.0);
     anim->setEndValue(1.0);
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void SinglyLinkedListWidget::animateNodeDeletion(NodeItem* node, std::function<void()> callback) {
-    QPropertyAnimation* anim = new QPropertyAnimation(node, "opacity");
+void SinglyLinkedListWidget::animateNodeDeletion(NodeItem *node, std::function<void()> callback) {
+    auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);
     anim->setStartValue(1.0);
     anim->setEndValue(0.0);
-    connect(anim, &QPropertyAnimation::finished, this, [this, node, callback]() {
+    connect(anim, &QPropertyAnimation::finished, this, [=]() {
         scene->removeItem(node);
-        if (callback)
-            callback();
+        delete node;
+        if (callback) callback();
     });
     anim->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
-void SinglyLinkedListWidget::updateScene() {
-    // 清除旧箭头
-    for (auto arrow : arrowItems) {
-        scene->removeItem(arrow);
-        delete arrow;
-    }
-    arrowItems.clear();
-
-    int startX = 20;
-    int y = 150;
-    // 平移节点（动画）
-    QParallelAnimationGroup* group = new QParallelAnimationGroup(this);
-    for (size_t i = 0; i < nodes.size(); i++) {
-        QPointF targetPos(startX + static_cast<int>(i * 100), y);
-        QPropertyAnimation* anim = new QPropertyAnimation(nodes[i], "pos");
-        anim->setDuration(500);
-        anim->setEndValue(targetPos);
-        group->addAnimation(anim);
-    }
-    group->start(QAbstractAnimation::DeleteWhenStopped);
-
-    QTimer::singleShot(600, [this, startX, y]() {
-        // 绘制节点间的箭头（使用黑色）
-        for (size_t i = 0; i + 1 < nodes.size(); i++) {
-            NodeItem* node1 = nodes[i];
-            NodeItem* node2 = nodes[i + 1];
-            QPointF p1 = node1->pos() + QPointF(80, 20);
-            QPointF p2 = node2->pos() + QPointF(0, 20);
-            QGraphicsLineItem* line = new QGraphicsLineItem(QLineF(p1, p2));
-            line->setPen(QPen(Qt::black, 2));
-            scene->addItem(line);
-            arrowItems.push_back(line);
-
-            double angle = std::atan2(p2.y() - p1.y(), p2.x() - p1.x());
-            const double arrowSize = 10;
-            QPointF arrowP1 = p2 - QPointF(arrowSize * std::cos(angle - M_PI / 6),
-                                           arrowSize * std::sin(angle - M_PI / 6));
-            QPointF arrowP2 = p2 - QPointF(arrowSize * std::cos(angle + M_PI / 6),
-                                           arrowSize * std::sin(angle + M_PI / 6));
-            QPolygonF arrowHead;
-            arrowHead << p2 << arrowP1 << arrowP2;
-            QGraphicsPolygonItem* arrowHeadItem = new QGraphicsPolygonItem(arrowHead);
-            arrowHeadItem->setBrush(Qt::black);
-            arrowHeadItem->setPen(QPen(Qt::black));
-            scene->addItem(arrowHeadItem);
-            arrowItems.push_back(arrowHeadItem);
-        }
-    });
 }

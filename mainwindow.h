@@ -5,10 +5,12 @@
 
 class QStackedWidget;
 
+// 主窗口类，继承自 QMainWindow
 class MainWindow : public QMainWindow {
     Q_OBJECT
+
 public:
-    MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(QWidget* parent = nullptr);
 };
 
-#endif // MAINWINDOW_H
+#endif

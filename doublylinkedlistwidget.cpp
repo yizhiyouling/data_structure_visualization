@@ -12,11 +12,13 @@
 #include <QPen>
 #include <cmath>
 
+// 构造函数，初始化控件并连接信号槽
 DoublyLinkedListWidget::DoublyLinkedListWidget(QWidget* parent)
     : QWidget(parent), nextNodeId(1)
 {
     auto *vlay = new QVBoxLayout(this);
 
+    // 初始化场景和视图
     scene = new QGraphicsScene(this);
     view  = new QGraphicsView(scene, this);
     view->setRenderHint(QPainter::Antialiasing);
@@ -41,6 +43,7 @@ DoublyLinkedListWidget::DoublyLinkedListWidget(QWidget* parent)
     hlay->addWidget(clearButton);
     vlay->addLayout(hlay);
 
+    // 连接信号与槽
     connect(addEndButton, &QPushButton::clicked, this, &DoublyLinkedListWidget::onAddEnd);
     connect(removeEndButton, &QPushButton::clicked, this, &DoublyLinkedListWidget::onRemoveEnd);
     connect(addAfterButton, &QPushButton::clicked, this, &DoublyLinkedListWidget::onAddAfter);
@@ -48,6 +51,7 @@ DoublyLinkedListWidget::DoublyLinkedListWidget(QWidget* parent)
     connect(clearButton, &QPushButton::clicked, this, &DoublyLinkedListWidget::onClear);
 }
 
+// 在链表末尾添加节点
 void DoublyLinkedListWidget::onAddEnd() {
     NodeItem* node = new NodeItem(nextNodeId++, nullptr);
     node->setOpacity(0.0);
@@ -57,6 +61,7 @@ void DoublyLinkedListWidget::onAddEnd() {
     QTimer::singleShot(600, this, &DoublyLinkedListWidget::updateScene);
 }
 
+// 删除链表末尾节点
 void DoublyLinkedListWidget::onRemoveEnd() {
     if (nodes.empty()) {
         QMessageBox::information(this, "提示", "链表为空！");
@@ -70,6 +75,7 @@ void DoublyLinkedListWidget::onRemoveEnd() {
     });
 }
 
+// 在指定节点后插入新节点
 void DoublyLinkedListWidget::onAddAfter() {
     bool ok; int target = targetLineEdit->text().toInt(&ok);
     if (!ok) { QMessageBox::warning(this,"输入错误","请输入合法编号"); return; }
@@ -87,6 +93,7 @@ void DoublyLinkedListWidget::onAddAfter() {
     targetLineEdit->clear();
 }
 
+// 删除指定节点
 void DoublyLinkedListWidget::onRemoveSpecified() {
     bool ok; int target = targetLineEdit->text().toInt(&ok);
     if (!ok){ QMessageBox::warning(this,"输入错误","请输入合法编号"); return; }
@@ -103,6 +110,7 @@ void DoublyLinkedListWidget::onRemoveSpecified() {
     targetLineEdit->clear();
 }
 
+// 清空链表，移除所有节点和连接
 void DoublyLinkedListWidget::onClear() {
     for(auto* n: nodes){ scene->removeItem(n); delete n; }
     for(auto* l: linesFwd){ scene->removeItem(l); delete l; }
@@ -114,6 +122,7 @@ void DoublyLinkedListWidget::onClear() {
     nextNodeId=1;
 }
 
+// 更新场景，重新排列节点并更新连线和箭头
 void DoublyLinkedListWidget::updateScene() {
     // 清除旧连线与箭头
     for(auto* l: linesFwd){ scene->removeItem(l); delete l; }
@@ -135,6 +144,7 @@ void DoublyLinkedListWidget::updateScene() {
     }
 }
 
+// 绘制连接两个节点的前向或后向连线
 void DoublyLinkedListWidget::drawConnection(NodeItem* a, NodeItem* b, bool forward) {
     QPointF pa = a->pos() + QPointF(20,20);
     QPointF pb = b->pos() + QPointF(20,20);
@@ -160,6 +170,7 @@ void DoublyLinkedListWidget::drawConnection(NodeItem* a, NodeItem* b, bool forwa
     else         arrowsBwd.push_back(arrow);
 }
 
+// 动画展示指针遍历到目标节点
 void DoublyLinkedListWidget::animatePointerTraversal(int targetIndex, std::function<void()> callback) {
     if (nodes.empty() || targetIndex < 0 || targetIndex >= (int)nodes.size()) {
         if (callback) callback();
@@ -172,6 +183,7 @@ void DoublyLinkedListWidget::animatePointerTraversal(int targetIndex, std::funct
     group->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
+// 节点插入时的动画效果
 void DoublyLinkedListWidget::animateNodeInsertion(NodeItem* node) {
     auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);
@@ -179,6 +191,8 @@ void DoublyLinkedListWidget::animateNodeInsertion(NodeItem* node) {
     anim->setEndValue(1.0);
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
+
+// 节点删除时的动画效果
 void DoublyLinkedListWidget::animateNodeDeletion(NodeItem* node, std::function<void()> callback) {
     auto *anim = new QPropertyAnimation(node, "opacity");
     anim->setDuration(500);
@@ -191,3 +205,4 @@ void DoublyLinkedListWidget::animateNodeDeletion(NodeItem* node, std::function<v
     });
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
+

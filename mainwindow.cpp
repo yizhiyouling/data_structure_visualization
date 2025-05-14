@@ -5,31 +5,31 @@
 #include "SinglyLinkedListWidget.h"
 #include "DoublyLinkedListWidget.h"
 #include "BinaryTreeWidget.h"
-#include "TreeTraversalWidget.h"   // 新增
+#include "TreeTraversalWidget.h"
 #include "GraphWidget.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
+    // 创建 QStackedWidget，它允许在不同的控件间切换
     QStackedWidget* stack = new QStackedWidget(this);
-    setCentralWidget(stack);
+    setCentralWidget(stack);  // 设置中心部件为 stack
 
-    // 创建各模块
-    SinglyLinkedListWidget* singlyList = new SinglyLinkedListWidget;
-    DoublyLinkedListWidget* doublyList = new DoublyLinkedListWidget;
-    BinaryTreeWidget* binaryTree = new BinaryTreeWidget;
-    TreeTraversalWidget* treeTraversal = new TreeTraversalWidget;  // 新增
-    GraphWidget* graphWidget = new GraphWidget;
+    // 创建各模块控件
+    SinglyLinkedListWidget* singlyList = new SinglyLinkedListWidget;  // 单链表模块
+    DoublyLinkedListWidget* doublyList = new DoublyLinkedListWidget;  // 双向链表模块
+    BinaryTreeWidget* binaryTree = new BinaryTreeWidget;              // 二叉树模块
+    TreeTraversalWidget* treeTraversal = new TreeTraversalWidget;     // 树的遍历模块
+    GraphWidget* graphWidget = new GraphWidget;                        // 图模块
 
-    // 添加到 stack 中
-    // 0 - 单链表，1 - 双向链表，2 - 二叉树，3 - 树的遍历，4 - 图
+    // 将各模块添加到 stack 中
     stack->addWidget(singlyList);
     stack->addWidget(doublyList);
     stack->addWidget(binaryTree);
-    stack->addWidget(treeTraversal);
+    stack->addWidget(treeTraversal);  // 新增
     stack->addWidget(graphWidget);
 
-    // 菜单栏
+    // 创建菜单栏
     QMenuBar* menuBar = new QMenuBar(this);
     setMenuBar(menuBar);
 
@@ -46,7 +46,7 @@ MainWindow::MainWindow(QWidget* parent)
     // “图”菜单
     QAction* graphAction = menuBar->addAction("图");
 
-    // 连接切换
+    // 连接菜单项与显示相应模块的逻辑
     connect(singlyAction, &QAction::triggered, this, [stack]() { stack->setCurrentIndex(0); });
     connect(doublyAction, &QAction::triggered, this, [stack]() { stack->setCurrentIndex(1); });
     connect(binaryTreeAction, &QAction::triggered, this, [stack]() { stack->setCurrentIndex(2); });
